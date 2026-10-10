@@ -44,10 +44,24 @@ ol.q li span.n{color:var(--mut);min-width:34px;text-align:right}
 #ov .lbl{font-size:calc(12px*var(--s,1));color:var(--ac);font-weight:600}
 #ov .tx{min-width:0}
 @media (prefers-reduced-motion:reduce){#ov{transition:opacity .2s}}
+#smsg{display:none;position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:6;background:rgba(0,0,0,.72);color:#fff;padding:6px 12px;border-radius:8px;font-size:14px;max-width:90vw}
+#smsg.on{display:block}
+#sbar{display:none;position:fixed;top:8px;left:50%;transform:translateX(-50%);gap:6px;opacity:0;transition:opacity .2s;z-index:5}
+body.st{background:#000;overflow:hidden}
+body.st #sbar{display:flex}
+body.st:hover #sbar{opacity:1}
+body.st main{padding:0;max-width:none;display:block}
+body.st main>*:not(#cols){display:none}
+body.st #cols{display:block}
+body.st #cols>section{background:none;border:0;padding:0}
+body.st #cols>section:nth-child(2),body.st #cols .row,body.st #sres{display:none}
+body.st #stage{height:100vh;border-radius:0}
 </style>
 </head>
 <body>
 <div id="ov" aria-live="polite"><img alt=""><div class="tx"><div class="lbl"></div><div class="t"></div><div class="c"></div><div class="nx"></div></div></div>
+
+<div id="smsg"></div><div id="sbar"><button id="sprev">Prev</button><button id="snext">Next</button><button id="srs">Reshuffle</button></div>
 
 <main id="ctl">
  <header><h1>Playlist Shuffler</h1><p class="sub">Merge several YouTube playlists, shuffle them into one queue, and show what's playing on stream.</p></header>
@@ -94,6 +108,8 @@ ol.q li span.n{color:var(--mut);min-width:34px;text-align:right}
    <select id="ohide" style="width:auto"><option value="0">Always visible</option><option value="8">Hide after 8s</option><option value="15">Hide after 15s</option></select>
    <button id="ocopy">Copy URL</button><button id="oopen">Preview</button>
   </div>
+  <p class="sub" style="margin-top:12px">Overlay not updating in OBS? Use one page instead: this URL plays your playlists and shows the overlay together, so nothing has to sync. It contains your API key, so don't share it.</p>
+  <div class="row"><input type="text" id="surl" readonly style="flex:1;min-width:240px"><button id="scopy">Copy stream URL</button></div>
  </section>
 
  <section><label>Playlist history</label><ul class="h" id="hl"></ul></section>
@@ -102,14 +118,15 @@ ol.q li span.n{color:var(--mut);min-width:34px;text-align:right}
 <script>
 (function(){
 var $=function(i){return document.getElementById(i)};
-var P=new URLSearchParams(location.search);
+var P=new URLSearchParams(location.search),stream=P.has('stream');
 var bc=null;try{bc=new BroadcastChannel('pls')}catch(e){}
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 
 /* ---------- overlay mode ---------- */
-if(P.has('overlay')){
- document.body.classList.add('ov');$('ctl').style.display='none';
+var showOv=null;
+function setupOv(isStream){
+ if(!isStream){document.body.classList.add('ov');$('ctl').style.display='none';}
  var ov=$('ov'),pos=P.get('pos')||'bl',hide=+(P.get('hide')||0),tmr;
  ov.style.setProperty('--s',P.get('scale')||1);
  ov.style[pos[0]=='t'?'top':'bottom']='28px';
@@ -130,11 +147,13 @@ if(P.has('overlay')){
    clearTimeout(tmr);if(hide)tmr=setTimeout(function(){ov.classList.remove('show')},hide*1000);
   },520);
  }
+ if(isStream){showOv=show;return}
  if(bc)bc.onmessage=function(e){show(e.data)};
  window.addEventListener('storage',function(e){if(e.key=='pls_now'&&e.newValue)try{show(JSON.parse(e.newValue))}catch(x){}});
  var s0=lsGet('pls_now');if(s0)try{show(JSON.parse(s0))}catch(x){}
- return;
 }
+if(P.has('overlay')){setupOv(false);return}
+if(stream){document.body.classList.add('st');setupOv(true)}
 
 /* ---------- controller ---------- */
 var Q=[],I=0,yt=null,ready=false,pendingId=null;
@@ -142,7 +161,8 @@ $('key').value=lsGet('pls_key')||'';
 $('pls').value=lsGet('pls_ids')||'';
 $('hgt').value=lsGet('pls_h')||'480';
 $('ourl').value=location.href.split('?')[0].split('#')[0]+'?overlay=1';
-function status(t){$('status').textContent=t}
+var sT;
+function status(t){$('status').textContent=t;if(stream){var m=$('smsg');m.textContent=t;m.className=t?'on':'';clearTimeout(sT);if(!/^(Error|Add|No )/.test(t))sT=setTimeout(function(){m.className=''},4000)}}
 
 function parseIds(txt){
  var out=[];
@@ -220,7 +240,7 @@ function render(){
 function announce(){
  var v=Q[I];if(!v)return;
  var m={id:v.id,t:v.t,c:v.c,th:v.th,i:I+1,n:Q.length,next:Q[I+1]?Q[I+1].t:''};
- if(bc)bc.postMessage(m);lsSet('pls_now',JSON.stringify(m));
+ if(bc)bc.postMessage(m);lsSet('pls_now',JSON.stringify(m));if(showOv)showOv(m);
 }
 
 function play(i,start){
@@ -237,7 +257,7 @@ function initYT(){
  yt={};
 }
 function build(){
- yt=new YT.Player('player',{height:$('hgt').value,width:'100%',videoId:pendingId,
+ yt=new YT.Player('player',{height:stream?'100%':$('hgt').value,width:'100%',videoId:pendingId,
   playerVars:{autoplay:$('auto').checked?1:0,rel:0,playsinline:1},
   events:{onReady:function(){ready=true},onStateChange:function(e){if(e.data===0)step(1)},onError:function(){step(1)}}});
 }
@@ -272,7 +292,17 @@ function ourl(){return $('ourl').value.split('?')[0]+'?overlay=1&pos='+$('opos')
 ['opos','osc','ohide'].forEach(function(id){$(id).onchange=function(){$('ourl').value=ourl()}});
 $('ocopy').onclick=function(){var u=ourl();$('ourl').value=u;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){status('Overlay URL copied.')},function(){$('ourl').select();status('Press Ctrl+C to copy the selected URL.')})};
 $('oopen').onclick=function(){window.open(ourl(),'_blank');setTimeout(announce,800)};
+function surl(){return $('ourl').value.split('?')[0]+'?stream=1&list='+encodeURIComponent(parseIds($('pls').value).join(','))+'&key='+encodeURIComponent($('key').value.trim())+'&pos='+$('opos').value+'&scale='+$('osc').value+'&hide='+$('ohide').value}
+$('scopy').onclick=function(){var u=surl();$('surl').value=u;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){status('Stream URL copied.')},function(){$('surl').select();status('Press Ctrl+C to copy the selected URL.')})};
 renderHist();
+if(stream){
+ $('sprev').onclick=function(){step(-1)};$('snext').onclick=function(){step(1)};
+ $('srs').onclick=function(){$('reshuf').click()};
+ var sk=P.get('key')||lsGet('pls_key')||'',sl=P.get('list')||'';
+ if(sk)$('key').value=sk;if(sl)$('pls').value=sl.split(',').join('\n');
+ $('auto').checked=true;
+ if(sk&&$('pls').value)load();else status('Error: the stream URL needs list and key. Copy it from the controller page.');
+}
 })();
 </script>
 </body>
