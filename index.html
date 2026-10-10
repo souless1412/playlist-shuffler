@@ -102,13 +102,13 @@ body.st.nov #stage{opacity:0;pointer-events:none}
 
  <section>
   <label>Stream overlay</label>
-  <p class="sub">Add this as an OBS Browser Source (URL, not local file). It updates when the video changes.</p>
+  <p class="sub">Add this URL as an OBS Browser Source (URL, not local file). Play music in this page; the overlay follows it. Song titles pass through the free ntfy.sh service under a random secret topic name, so keep the overlay URL private.</p>
   <div class="row">
    <input type="text" id="ourl" readonly style="flex:1;min-width:240px">
    <select id="opos" style="width:auto"><option value="bl">Bottom left</option><option value="br">Bottom right</option><option value="tl">Top left</option><option value="tr">Top right</option></select>
    <select id="osc" style="width:auto"><option value="1">Size 100%</option><option value="1.3">Size 130%</option><option value="1.6">Size 160%</option></select>
    <select id="ohide" style="width:auto"><option value="0">Always visible</option><option value="8">Hide after 8s</option><option value="15">Hide after 15s</option></select>
-   <button id="ocopy">Copy URL</button><button id="oopen">Preview</button>
+   <button id="ocopy">Copy URL</button><button id="oopen">Preview</button><button id="ntopic">New topic</button><label class="chk"><input type="checkbox" id="relay" checked> Send now-playing to overlay</label>
   </div>
   <p class="sub" style="margin-top:12px">Overlay not updating in OBS? Use one page instead: this URL plays your playlists and shows the overlay together, so nothing has to sync. It contains your API key, so don't share it.</p>
   <div class="row"><input type="text" id="surl" readonly style="flex:1;min-width:240px"><select id="ovid" style="width:auto"><option value="0">Overlay only</option><option value="1">Show video</option></select><button id="scopy">Copy stream URL</button></div>
@@ -153,12 +153,24 @@ function setupOv(isStream){
  if(bc)bc.onmessage=function(e){show(e.data)};
  window.addEventListener('storage',function(e){if(e.key=='pls_now'&&e.newValue)try{show(JSON.parse(e.newValue))}catch(x){}});
  var s0=lsGet('pls_now');if(s0)try{show(JSON.parse(s0))}catch(x){}
+ var tp=P.get('topic');
+ if(tp&&window.EventSource){
+  var es=new EventSource('https://ntfy.sh/'+encodeURIComponent(tp)+'/sse?since=latest');
+  es.onmessage=function(e){try{var d=JSON.parse(e.data);if(d.event==='message')show(JSON.parse(d.message))}catch(x){}};
+ }
 }
 if(P.has('overlay')){setupOv(false);return}
 if(stream){document.body.classList.add('st');if(P.get('video')==='0')document.body.classList.add('nov');setupOv(true)}
 
 /* ---------- controller ---------- */
 var Q=[],I=0,yt=null,ready=false,pendingId=null;
+function newTopic(){var a=new Uint8Array(12),s='pls-',i;try{crypto.getRandomValues(a)}catch(e){for(i=0;i<12;i++)a[i]=Math.random()*256}for(i=0;i<12;i++)s+=(a[i]%36).toString(36);return s}
+var topic=lsGet('pls_topic');if(!topic){topic=newTopic();lsSet('pls_topic',topic)}
+var relayWarned=false;
+function relay(m){
+ if(stream||!$('relay').checked)return;
+ fetch('https://ntfy.sh/'+topic,{method:'POST',body:JSON.stringify(m)}).then(function(r){if(!r.ok)throw 0}).catch(function(){if(!relayWarned){relayWarned=true;status('Could not reach the overlay relay (ntfy.sh). Check your connection or ad blocker.')}});
+}
 $('key').value=lsGet('pls_key')||'';
 $('pls').value=lsGet('pls_ids')||'';
 $('hgt').value=lsGet('pls_h')||'480';
@@ -242,7 +254,7 @@ function render(){
 function announce(){
  var v=Q[I];if(!v)return;
  var m={id:v.id,t:v.t,c:v.c,th:v.th,i:I+1,n:Q.length,next:Q[I+1]?Q[I+1].t:''};
- if(bc)bc.postMessage(m);lsSet('pls_now',JSON.stringify(m));if(showOv)showOv(m);
+ if(bc)bc.postMessage(m);lsSet('pls_now',JSON.stringify(m));if(showOv)showOv(m);relay(m);
 }
 
 function play(i,start){
@@ -290,13 +302,15 @@ $('bm').onclick=function(){save();status('Bookmarked at '+(I+1)+' of '+Q.length+
 $('srch').onclick=function(){var s=$('sres');s.style.display=s.style.display=='block'?'none':'block';if(s.style.display=='block')$('sq').focus()};
 $('sq').oninput=doSearch;
 $('hgt').onchange=function(){lsSet('pls_h',this.value);if(yt&&yt.setSize)yt.setSize('100%',+this.value)};
-function ourl(){return $('ourl').value.split('?')[0]+'?overlay=1&pos='+$('opos').value+'&scale='+$('osc').value+'&hide='+$('ohide').value}
+function ourl(){return $('ourl').value.split('?')[0]+'?overlay=1&topic='+encodeURIComponent(topic)+'&pos='+$('opos').value+'&scale='+$('osc').value+'&hide='+$('ohide').value}
 ['opos','osc','ohide'].forEach(function(id){$(id).onchange=function(){$('ourl').value=ourl()}});
 $('ocopy').onclick=function(){var u=ourl();$('ourl').value=u;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){status('Overlay URL copied.')},function(){$('ourl').select();status('Press Ctrl+C to copy the selected URL.')})};
 $('oopen').onclick=function(){window.open(ourl(),'_blank');setTimeout(announce,800)};
 function surl(){return $('ourl').value.split('?')[0]+'?stream=1&list='+encodeURIComponent(parseIds($('pls').value).join(','))+'&key='+encodeURIComponent($('key').value.trim())+'&video='+$('ovid').value+'&pos='+$('opos').value+'&scale='+$('osc').value+'&hide='+$('ohide').value}
 $('scopy').onclick=function(){var u=surl();$('surl').value=u;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){status('Stream URL copied.')},function(){$('surl').select();status('Press Ctrl+C to copy the selected URL.')})};
+$('ntopic').onclick=function(){topic=newTopic();lsSet('pls_topic',topic);$('ourl').value=ourl();status('New topic created. Copy the overlay URL again and update OBS.');announce()};
 renderHist();
+$('ourl').value=ourl();
 if(stream){
  $('sprev').onclick=function(){step(-1)};$('snext').onclick=function(){step(1)};
  $('srs').onclick=function(){$('reshuf').click()};
