@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Playlist Shuffler</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Zen+Maru+Gothic:wght@500;700&family=Orbitron:wght@500;700&family=Bangers&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Zen+Maru+Gothic:wght@500;700&family=Orbitron:wght@500;700&family=Bangers&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#18202e;--panel:#222c3d;--line:#34415a;--tx:#e9edf5;--mut:#9aa7bf;--ac:#ff5c8a;--ac2:#3a2a44;font-family:"Space Grotesk",system-ui,sans-serif}
 *{box-sizing:border-box}
@@ -84,6 +84,46 @@ body.st.nov #stage{opacity:0;pointer-events:none}
 #ov.sk-lofi img{border-radius:12px;filter:saturate(.8) sepia(.2)}
 #ov.sk-lofi::before{width:16px;height:16px;right:16px;top:12px;border-radius:50%;box-shadow:inset -5px -3px 0 0 #ffe8b0;filter:drop-shadow(0 0 6px #ffe8b0);animation:bob 5s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(4px)}}
+#ov.sk-pika{--ac:#d62828;--ts:#6b5200;color:#1b1400;font-family:"Zen Maru Gothic",sans-serif;border-radius:16px;background:radial-gradient(circle at 5% 90%,#ef4444 0 11px,transparent 12px),radial-gradient(circle at 95% 90%,#ef4444 0 11px,transparent 12px),linear-gradient(135deg,#ffe65c,#ffc928);box-shadow:0 0 0 3px #1b1400,0 0 16px rgba(255,221,45,.7);animation:zap 1.2s ease-in-out infinite}
+#ov.sk-pika .t{font-weight:700}
+#ov.sk-pika img{border-radius:10px;border:3px solid #1b1400}
+#ov.sk-pika::before,#ov.sk-pika::after{background:#7a4a00;clip-path:polygon(40% 0,10% 55%,45% 55%,30% 100%,90% 40%,55% 40%,70% 0);opacity:0;animation:flash 1.6s infinite}
+#ov.sk-pika::before{width:22px;height:40px;right:14px;top:4px}
+#ov.sk-pika::after{width:15px;height:30px;right:56px;bottom:4px;animation-delay:.8s}
+@keyframes zap{50%{box-shadow:0 0 0 3px #1b1400,0 0 32px 6px rgba(255,240,130,.95)}}
+@keyframes flash{0%,58%,76%,100%{opacity:0}62%,70%{opacity:.9}66%{opacity:0}}
+#ov.sk-lantern{--ac:#ffd27a;--ts:#f0c9a0;color:#fff3d6;font-family:"Noto Serif SC","Songti SC","SimSun",Georgia,serif;border-radius:6px;padding-right:56px;background:repeating-linear-gradient(45deg,rgba(232,184,74,.08) 0 6px,transparent 6px 12px),linear-gradient(135deg,#7d140d,#a82216 60%,#6a0f0a);box-shadow:0 6px 20px rgba(0,0,0,.4),inset 0 0 0 2px #e8b84a,inset 0 0 0 5px #7d140d,inset 0 0 0 6px #e8b84a}
+#ov.sk-lantern img{border:2px solid #e8b84a;border-radius:3px}
+#ov.sk-lantern::before{width:16px;height:21px;right:36px;top:0;border-radius:0 0 8px 8px;background:linear-gradient(#ff4a2e,#c4160a);box-shadow:0 0 12px #ffb02e,inset 0 0 0 2px #e8b84a;transform-origin:50% 0;animation:sway 3s ease-in-out infinite alternate}
+#ov.sk-lantern::after{content:"\97F3";width:24px;height:24px;right:12px;bottom:12px;background:#f6e2b0;color:#a82216;font-size:15px;line-height:24px;text-align:center;border-radius:3px}
+@keyframes sway{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
+#ov.sk-ink{--ac:#b3261e;--ts:#555;color:#161616;font-family:"Noto Serif SC","Songti SC","SimSun",Georgia,serif;border-radius:3px;background:radial-gradient(ellipse at 88% 115%,rgba(30,30,30,.55),transparent 55%),radial-gradient(ellipse at 62% 125%,rgba(30,30,30,.35),transparent 50%),linear-gradient(#f5f0e4,#e9e1cf);box-shadow:0 5px 16px rgba(0,0,0,.35),inset 0 0 0 1px #b7ad96}
+#ov.sk-ink img{filter:grayscale(1) contrast(1.1);border-radius:2px}
+#ov.sk-ink::before{width:70px;height:70px;right:14px;top:-8px;background:radial-gradient(circle,rgba(20,20,20,.3),transparent 65%);animation:inkbloom 4s ease-out infinite}
+#ov.sk-ink::after{content:"\6A02";width:22px;height:22px;right:12px;bottom:10px;background:#b3261e;color:#f5f0e4;font-size:14px;line-height:22px;text-align:center;border-radius:2px}
+@keyframes inkbloom{from{transform:scale(.3);opacity:.9}to{transform:scale(1.5);opacity:0}}
+#ov.sk-ahri{--ac:#ff8fcf;--ts:#d9b3ff;color:#fff4fb;border-radius:18px;background:linear-gradient(135deg,#2a1240,#6b2a8f 60%,#c2509a);box-shadow:0 0 22px rgba(255,143,207,.55),inset 0 0 0 1px rgba(255,200,235,.5)}
+#ov.sk-ahri::before,#ov.sk-ahri::after{border-radius:50%;background:radial-gradient(circle,#fff 0 22%,#ff8fcf 46%,transparent 72%);animation:orb 3.4s ease-in-out infinite}
+#ov.sk-ahri::before{width:18px;height:18px;left:42%;bottom:6px}
+#ov.sk-ahri::after{width:12px;height:12px;right:20%;bottom:10px;animation-duration:4.4s;animation-delay:1s}
+@keyframes orb{0%,100%{transform:translateY(0);opacity:.95}50%{transform:translateY(-34px);opacity:.25}}
+#ov.sk-jinx{--ac:#ff4fa3;--ts:#9fe7ff;color:#fff;border-radius:6px;background:linear-gradient(120deg,#12233f,#1e3d6e);box-shadow:0 0 0 3px #ff4fa3,6px 6px 0 3px #2fd6ff}
+#ov.sk-jinx .t{font-family:Bangers,sans-serif;font-weight:400;letter-spacing:.04em;font-size:calc(21px*var(--s,1))}
+#ov.sk-jinx img{border:3px solid #ff4fa3;border-radius:3px;transform:rotate(-3deg)}
+#ov.sk-jinx::before{left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(135deg,#ff4fa3 0 6px,transparent 6px 14px);opacity:.85}
+#ov.sk-jinx::after{content:"\2739";right:10px;top:4px;font-size:24px;color:#2fd6ff;animation:spin 6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#ov.sk-yasuo{--ac:#8ff0e6;--ts:#a9d4d6;color:#eefcfb;border-radius:4px;background:linear-gradient(135deg,#0d252d,#1d5560 65%,#4fa6a6);box-shadow:0 6px 20px rgba(0,0,0,.4),inset 0 0 0 1px rgba(143,240,230,.45)}
+#ov.sk-yasuo::before{inset:0;background:repeating-linear-gradient(100deg,transparent 0 22px,rgba(255,255,255,.1) 22px 24px);animation:wind 2.4s linear infinite}
+#ov.sk-yasuo::after{inset:0;background:linear-gradient(115deg,transparent 44%,rgba(255,255,255,.6) 50%,transparent 56%) 140% 0/200% 100% no-repeat;animation:glint 5s ease-in-out infinite}
+@keyframes wind{to{background-position:48px 0}}
+@keyframes glint{0%,55%{background-position:140% 0}100%{background-position:-40% 0}}
+#ov.sk-darius{--ac:#ff4747;--ts:#c9a9a9;color:#f3e6e6;font-family:Cinzel,Georgia,serif;border-radius:3px;background:linear-gradient(135deg,#150a0a,#341010 60%,#6e1010);box-shadow:0 0 0 2px #8f8f96,0 6px 20px rgba(0,0,0,.5)}
+#ov.sk-darius .t{font-size:calc(16px*var(--s,1));font-weight:700}
+#ov.sk-darius img{border:2px solid #8f8f96;border-radius:2px}
+#ov.sk-darius::before{inset:0;background:linear-gradient(112deg,transparent 58%,rgba(255,60,60,.5) 60%,transparent 63%);animation:slash 3.5s ease-in-out infinite}
+#ov.sk-darius::after{left:0;right:0;bottom:0;height:3px;background:#b01212}
+@keyframes slash{0%,70%,100%{opacity:.25}78%{opacity:1}}
 @media (prefers-reduced-motion:reduce){#ov::before,#ov::after{animation:none!important}}
 </style>
 </head>
@@ -135,7 +175,7 @@ body.st.nov #stage{opacity:0;pointer-events:none}
    <select id="opos" style="width:auto"><option value="bl">Bottom left</option><option value="br">Bottom right</option><option value="tl">Top left</option><option value="tr">Top right</option></select>
    <select id="osc" style="width:auto"><option value="1">Size 100%</option><option value="1.3">Size 130%</option><option value="1.6">Size 160%</option></select>
    <select id="ohide" style="width:auto"><option value="0">Always visible</option><option value="8">Hide after 8s</option><option value="15">Hide after 15s</option></select>
-   <select id="oskin" style="width:auto"><option value="">Classic</option><option value="sakura">Sakura</option><option value="galaxy">Galaxy</option><option value="anime">Anime</option><option value="synthwave">Synthwave</option><option value="lofi">Lofi night</option></select><button id="ocopy">Copy URL</button><button id="oopen">Preview</button><button id="ntopic">New topic</button><label class="chk"><input type="checkbox" id="relay" checked> Send now-playing to overlay</label>
+   <select id="oskin" style="width:auto"><option value="">Classic</option><option value="sakura">Sakura</option><option value="galaxy">Galaxy</option><option value="anime">Anime</option><option value="synthwave">Synthwave</option><option value="lofi">Lofi night</option><option value="pika">Electric (Pikachu)</option><option value="lantern">Lantern festival</option><option value="ink">Ink wash</option><option value="ahri">LoL: Ahri</option><option value="jinx">LoL: Jinx</option><option value="yasuo">LoL: Yasuo</option><option value="darius">LoL: Darius</option></select><button id="ocopy">Copy URL</button><button id="oopen">Preview</button><button id="ntopic">New topic</button><label class="chk"><input type="checkbox" id="relay" checked> Send now-playing to overlay</label>
   </div>
   <p class="sub" style="margin-top:12px">Overlay not updating in OBS? Use one page instead: this URL plays your playlists and shows the overlay together, so nothing has to sync. It contains your API key, so don't share it.</p>
   <div class="row"><input type="text" id="surl" readonly style="flex:1;min-width:240px"><select id="ovid" style="width:auto"><option value="0">Overlay only</option><option value="1">Show video</option></select><button id="scopy">Copy stream URL</button></div>
@@ -158,7 +198,7 @@ function setupOv(isStream){
  if(!isStream){document.body.classList.add('ov');$('ctl').style.display='none';}
  var ov=$('ov'),pos=P.get('pos')||'bl',hide=+(P.get('hide')||0),tmr;
  ov.style.setProperty('--s',P.get('scale')||1);
- var sk=P.get('skin');if(/^(sakura|galaxy|anime|synthwave|lofi)$/.test(sk))ov.classList.add('sk-'+sk);
+ var sk=P.get('skin');if(/^(sakura|galaxy|anime|synthwave|lofi|pika|lantern|ink|ahri|jinx|yasuo|darius)$/.test(sk))ov.classList.add('sk-'+sk);
  ov.style[pos[0]=='t'?'top':'bottom']='28px';
  ov.style[pos[1]=='l'?'left':'right']='28px';
  if(pos[1]=='r')ov.classList.add('r');
