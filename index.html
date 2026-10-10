@@ -56,6 +56,8 @@ body.st #cols{display:block}
 body.st #cols>section{background:none;border:0;padding:0}
 body.st #cols>section:nth-child(2),body.st #cols .row,body.st #sres{display:none}
 body.st #stage{height:100vh;border-radius:0}
+body.st.nov{background:transparent}
+body.st.nov #stage{opacity:0;pointer-events:none}
 </style>
 </head>
 <body>
@@ -109,7 +111,7 @@ body.st #stage{height:100vh;border-radius:0}
    <button id="ocopy">Copy URL</button><button id="oopen">Preview</button>
   </div>
   <p class="sub" style="margin-top:12px">Overlay not updating in OBS? Use one page instead: this URL plays your playlists and shows the overlay together, so nothing has to sync. It contains your API key, so don't share it.</p>
-  <div class="row"><input type="text" id="surl" readonly style="flex:1;min-width:240px"><button id="scopy">Copy stream URL</button></div>
+  <div class="row"><input type="text" id="surl" readonly style="flex:1;min-width:240px"><select id="ovid" style="width:auto"><option value="0">Overlay only</option><option value="1">Show video</option></select><button id="scopy">Copy stream URL</button></div>
  </section>
 
  <section><label>Playlist history</label><ul class="h" id="hl"></ul></section>
@@ -153,7 +155,7 @@ function setupOv(isStream){
  var s0=lsGet('pls_now');if(s0)try{show(JSON.parse(s0))}catch(x){}
 }
 if(P.has('overlay')){setupOv(false);return}
-if(stream){document.body.classList.add('st');setupOv(true)}
+if(stream){document.body.classList.add('st');if(P.get('video')==='0')document.body.classList.add('nov');setupOv(true)}
 
 /* ---------- controller ---------- */
 var Q=[],I=0,yt=null,ready=false,pendingId=null;
@@ -292,7 +294,7 @@ function ourl(){return $('ourl').value.split('?')[0]+'?overlay=1&pos='+$('opos')
 ['opos','osc','ohide'].forEach(function(id){$(id).onchange=function(){$('ourl').value=ourl()}});
 $('ocopy').onclick=function(){var u=ourl();$('ourl').value=u;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){status('Overlay URL copied.')},function(){$('ourl').select();status('Press Ctrl+C to copy the selected URL.')})};
 $('oopen').onclick=function(){window.open(ourl(),'_blank');setTimeout(announce,800)};
-function surl(){return $('ourl').value.split('?')[0]+'?stream=1&list='+encodeURIComponent(parseIds($('pls').value).join(','))+'&key='+encodeURIComponent($('key').value.trim())+'&pos='+$('opos').value+'&scale='+$('osc').value+'&hide='+$('ohide').value}
+function surl(){return $('ourl').value.split('?')[0]+'?stream=1&list='+encodeURIComponent(parseIds($('pls').value).join(','))+'&key='+encodeURIComponent($('key').value.trim())+'&video='+$('ovid').value+'&pos='+$('opos').value+'&scale='+$('osc').value+'&hide='+$('ohide').value}
 $('scopy').onclick=function(){var u=surl();$('surl').value=u;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){status('Stream URL copied.')},function(){$('surl').select();status('Press Ctrl+C to copy the selected URL.')})};
 renderHist();
 if(stream){
