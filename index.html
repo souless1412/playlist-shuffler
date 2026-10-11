@@ -832,19 +832,44 @@ function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()
 var INVIDIOUS_INSTANCES=['invidious.f5.si','iv.nboeck.de','iv.datura.network','vid.puffyan.us','y.com.sb','invidious.snopyta.org','invidious.privacydev.net'];
 var invidiousHost='';
 
+function fetchWithTimeout(u,ms){
+ return new Promise(function(resolve,reject){
+  var t=setTimeout(function(){reject(new Error('timeout'))},ms||8000);
+  fetch(u).then(function(r){clearTimeout(t);resolve(r)}).catch(function(e){clearTimeout(t);reject(e)});
+ });
+}
+
+async function probeInvidiousHosts(){
+ status('Finding fastest Invidious server...');
+ var results=[];
+ await Promise.all(INVIDIOUS_INSTANCES.map(function(host){
+  return new Promise(function(resolve){
+   var h=host.replace(/^https?:\/\//,'').replace(/\/$/,'');
+   if(!h){resolve();return}
+   var start=performance.now();
+   fetchWithTimeout('https://'+h+'/api/v1/stats',4000).then(function(r){
+    if(r.ok)results.push({host:h,time:performance.now()-start});
+    resolve();
+   }).catch(function(){resolve()});
+  });
+ }));
+ results.sort(function(a,b){return a.time-b.time});
+ return results.length?results[0].host:'';
+}
+
 async function fetchList(id){
+ if(!invidiousHost)invidiousHost=await probeInvidiousHosts();
+ if(!invidiousHost)throw new Error('No Invidious instance responded.');
  var hosts=INVIDIOUS_INSTANCES.slice();
- if(invidiousHost){
-  var idx=hosts.indexOf(invidiousHost);
-  if(idx>-1)hosts.splice(idx,1);
-  hosts.unshift(invidiousHost);
- }
+ var idx=hosts.indexOf(invidiousHost);
+ if(idx>-1)hosts.splice(idx,1);
+ hosts.unshift(invidiousHost);
  var lastErr='';
  for(var i=0;i<hosts.length;i++){
   var h=hosts[i].replace(/^https?:\/\//,'').replace(/\/$/,'');if(!h)continue;
   try{
    var u='https://'+h+'/api/v1/playlists/'+encodeURIComponent(id);
-   var r=await fetch(u);
+   var r=await fetchWithTimeout(u,15000);
    if(!r.ok){lastErr=h+' '+r.status;continue}
    var d=await r.json();
    if(d.error){lastErr=h+': '+d.error;continue}
