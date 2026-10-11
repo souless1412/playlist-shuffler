@@ -455,6 +455,7 @@ body.st.nov #stage{opacity:0;pointer-events:none}
    <select id="hgt" style="width:auto"><option>360</option><option selected>480</option><option>720</option><option>1080</option></select>
   </div>
   <div id="status" role="status"></div>
+  <p id="pnames" class="sub" style="margin-top:6px"></p>
  </section>
 
  <div id="cols">
@@ -864,26 +865,44 @@ async function fetchList(id){
  var idx=hosts.indexOf(invidiousHost);
  if(idx>-1)hosts.splice(idx,1);
  hosts.unshift(invidiousHost);
- var lastErr='';
+ var lastErr='',MAX=10000;
  for(var i=0;i<hosts.length;i++){
   var h=hosts[i].replace(/^https?:\/\//,'').replace(/\/$/,'');if(!h)continue;
   try{
-   var u='https://'+h+'/api/v1/playlists/'+encodeURIComponent(id);
-   var r=await fetchWithTimeout(u,15000);
-   if(!r.ok){lastErr=h+' '+r.status;continue}
-   var d=await r.json();
-   if(d.error){lastErr=h+': '+d.error;continue}
-   if(!d.videos||!d.videos.length){lastErr=h+': no videos';continue}
-   invidiousHost=h;
-   status('Loading '+id+' via '+h+': '+d.videos.length+' videos');
-   return d.videos.map(function(v){
-    var th='';
-    if(v.videoThumbnails&&v.videoThumbnails.length){
-     var mq=v.videoThumbnails.find(function(t){return t.quality=='mqdefault'||t.quality=='default'});
-     th=mq?mq.url:v.videoThumbnails[0].url;
-    }
-    return {id:v.videoId,t:v.title||'Unknown',c:(v.author||'').replace(/ - Topic$/,''),th:th};
-   });
+   var offset=0,allv=[],seenIdx={},title='',videoCount=0;
+   do{
+    var u='https://'+h+'/api/v1/playlists/'+encodeURIComponent(id)+(offset?'?index='+offset:'');
+    var r=await fetchWithTimeout(u,15000);
+    if(!r.ok){lastErr=h+' '+r.status;break}
+    var d=await r.json();
+    if(d.error){lastErr=h+': '+d.error;break}
+    if(!d.videos||!d.videos.length)break;
+    if(!title)title=d.title||id;
+    if(d.videoCount)videoCount=d.videoCount;
+    d.videos.forEach(function(v){
+     if(v.index!==undefined && seenIdx[v.index])return;
+     if(v.index!==undefined)seenIdx[v.index]=1;
+     allv.push(v);
+    });
+    var maxIdx=-1;
+    for(var k in seenIdx)maxIdx=Math.max(maxIdx,parseInt(k));
+    status('Loading '+id+' via '+h+': '+allv.length+(videoCount?'/'+videoCount:'')+' videos');
+    if(!videoCount || maxIdx>=videoCount-1 || maxIdx<0)break;
+    offset=maxIdx+1;
+   }while(offset && allv.length<MAX);
+   if(allv.length){
+    invidiousHost=h;
+    allv.sort(function(a,b){return (a.index||0)-(b.index||0)});
+    return {title:title||id,videos:allv.map(function(v){
+     var th='';
+     if(v.videoThumbnails&&v.videoThumbnails.length){
+      var mq=v.videoThumbnails.find(function(t){return t.quality=='mqdefault'||t.quality=='default'});
+      th=mq?mq.url:v.videoThumbnails[0].url;
+     }
+     return {id:v.videoId,t:v.title||'Unknown',c:(v.author||'').replace(/ - Topic$/,''),th:th};
+    })};
+   }
+   lastErr=h+': no videos';
   }catch(e){lastErr=h+': '+e.message}
  }
  invidiousHost='';
@@ -908,14 +927,15 @@ async function load(){
  if(!$('multi').checked)ids=ids.slice(0,1);
  lsSet('pls_ids',$('pls').value);
  try{
-  var all=[];
-  for(var k=0;k<ids.length;k++){all=all.concat(await fetchList(ids[k]))}
+  var all=[],titles=[];
+  for(var k=0;k<ids.length;k++){var res=await fetchList(ids[k]);titles.push(res.title);all=all.concat(res.videos)}
   var seen={};all=all.filter(function(v){if(seen[v.id])return false;seen[v.id]=1;return true}).slice(0,10000);
   if(!all.length){status('No playable videos found.');return}
   Q=shuffle(all);I=0;addHistory(ids);save();render();
   status(Q.length+' videos from '+ids.length+' playlist'+(ids.length>1?'s':'')+' shuffled.'+note);
+  if($('pnames'))$('pnames').textContent='Loaded: '+titles.join(' · ');
   play(0,true);
- }catch(e){status('Error: '+e.message)}
+ }catch(e){status('Error: '+e.message);if($('pnames'))$('pnames').textContent=''}
 }
 
 function save(){lsSet('pls_session',JSON.stringify({q:Q.map(function(v){return[v.id,v.t,v.c,v.th]}),i:I,ids:$('pls').value}))}
