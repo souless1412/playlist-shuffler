@@ -7,6 +7,7 @@
 <meta name="description" content="Merge and shuffle YouTube playlists and show what's playing on your stream with animated overlays.">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Archivo:wdth,wght@125,800;125,900&family=Nunito:wght@700;800&family=Zen+Maru+Gothic:wght@500;700&family=Orbitron:wght@500;700&family=Bangers&family=Cinzel:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5.0.3/dist/mqtt.min.js"></script>
 <style>
 :root{--bg:#ffffff;--panel:#f3f3f3;--line:#222;--tx:#1f1f1f;--mut:#555;--ac:#ff0000;--ac2:#ffe3e3;font-family:"Space Grotesk",system-ui,sans-serif}
 *{box-sizing:border-box}
@@ -47,6 +48,12 @@ ol.q li span.n{color:var(--mut);min-width:34px;text-align:right}
 #qres{display:flex;gap:10px;align-items:center;margin-top:10px}
 #qres img{width:96px;height:54px;object-fit:cover;border-radius:6px}
 #gwrap{position:fixed;left:-10000px;top:0;width:200px;height:113px}
+.games{display:grid;gap:10px;margin-top:10px}
+.gcard{border:1px solid var(--line);background:#fff}
+.ghead{width:100%;text-align:left;padding:12px 14px;font:inherit;font-weight:700;background:transparent;border:0;cursor:pointer;border-radius:0}
+.ghead:hover{background:var(--ac2)}
+.gcard.open .ghead{background:var(--ac);color:#fff}
+.gpanel{padding:12px 14px;border-top:1px solid var(--line);background:var(--panel)}
 /* site */
 .page[hidden]{display:none!important}
 body.ov #site,body.ov #sfoot,body.st #site,body.st #sfoot{display:none}
@@ -428,7 +435,8 @@ body.st.nov #stage{opacity:0;pointer-events:none}
    <h3>Third-party services</h3>
    <ul>
     <li><strong>YouTube:</strong> playlists are read through a public Invidious instance, and songs play in the YouTube player, under YouTube's Terms of Service and Google's Privacy Policy. The Invidious instance used sees which playlists you load.</li>
-    <li><strong>ntfy.sh:</strong> to update an overlay in OBS, the title and thumbnail of the current song are sent through the free ntfy.sh service under a random, secret topic name. Turn off "Send now-playing to overlay" to stop this.</li>
+    <li><strong>Overlay relay:</strong> to update an overlay in OBS, the title and thumbnail of the current song are sent through the free ntfy.sh service and/or a public MQTT broker under a random, secret topic name. Turn off "Send now-playing to overlay" to stop this.</li>
+    <li><strong>MQTT library:</strong> the MQTT client is loaded from jsDelivr.</li>
     <li><strong>Google Fonts:</strong> fonts are loaded from Google's servers.</li>
    </ul>
    <h3>Cookies</h3>
@@ -473,26 +481,47 @@ body.st.nov #stage{opacity:0;pointer-events:none}
   <section><label>Up next</label><ol class="q" id="ql"></ol></section>
  </div>
 
- <section id="quiz">
-  <label>Song quiz</label>
-  <p class="sub">Hear a random 10-second part of a song from your loaded playlists, then pick the right title. Keys 1 to 4 answer, Enter goes to the next song.</p>
-  <div class="row">
-   <button class="go" id="qstart">Play 10 songs</button><button id="qendless">Endless mode</button><button id="qstop">Stop</button>
-   <span id="qscore"></span>
+  <section id="games">
+  <label>Games</label>
+  <div class="games">
+   <div class="gcard" id="gquiz">
+    <button class="ghead" type="button">Song quiz</button>
+    <div class="gpanel" hidden>
+     <p class="sub">Hear a random 10-second part of a song from your loaded playlists, then pick the right title. Keys 1 to 4 answer, Enter goes to the next song.</p>
+     <div class="row">
+      <button class="go" id="qstart">Play 10 songs</button><button id="qendless">Endless mode</button><button id="qstop">Stop</button>
+      <span id="qscore"></span>
+     </div>
+     <div id="qbox" hidden>
+      <div id="qinfo" role="status"></div>
+      <div id="qbar"><i></i></div>
+      <div id="qopts"></div>
+      <div id="qres" aria-live="polite"></div>
+      <div class="row"><button id="qreplay">Replay clip</button><button class="go" id="qnext">Next song</button></div>
+     </div>
+     <div id="gwrap" aria-hidden="true"><div id="gplayer"></div></div>
+    </div>
+   </div>
+   <div class="gcard" id="grhythm">
+    <button class="ghead" type="button">Rhythm Game</button>
+    <div class="gpanel" hidden>
+     <p class="sub">Arrow keys hit the beats. Set the BPM or tap it out, then Start.</p>
+     <div class="row">
+      <label>BPM <input id="rbpm" type="number" value="120" min="40" max="300" style="width:80px"></label>
+      <button id="rtapbpm">Tap BPM</button>
+      <button class="go" id="rstart">Start</button>
+      <button id="rstop">Stop</button>
+      <span id="rstat">Score: 0 · Streak: 0 · Miss: 0</span>
+     </div>
+     <canvas id="rstage" width="360" height="540" style="width:100%;max-width:420px;height:auto;background:#111;border:2px solid #222;border-radius:8px;display:block;margin-top:10px"></canvas>
+     <p class="sub">Match the arrow sequence, then hit Space when the circle is in the perfect zone.</p>
+    </div>
+   </div>
   </div>
-  <div id="qbox" hidden>
-   <div id="qinfo" role="status"></div>
-   <div id="qbar"><i></i></div>
-   <div id="qopts"></div>
-   <div id="qres" aria-live="polite"></div>
-   <div class="row"><button id="qreplay">Replay clip</button><button class="go" id="qnext">Next song</button></div>
-  </div>
-  <div id="gwrap" aria-hidden="true"><div id="gplayer"></div></div>
  </section>
-
- <section id="ovset">
+<section id="ovset">
   <label>Overlay Settings <span id="sync">Sync: off</span></label>
-  <p class="sub">Add this URL as an OBS Browser Source (URL, not local file). Play music in this page; the overlay follows it. Song titles pass through the free ntfy.sh service under a random secret topic name, so keep the overlay URL private.</p>
+  <p class="sub">Add this URL as an OBS Browser Source (URL, not local file). Play music in this page; the overlay follows it. Song titles pass through the free ntfy.sh service and/or a public MQTT broker under a random secret topic name, so keep the overlay URL private.</p>
   <div class="row">
    <input type="text" id="ourl" readonly style="flex:1;min-width:240px">
    <select id="opos" style="width:auto"><option value="bl">Bottom left</option><option value="br">Bottom right</option><option value="tl">Top left</option><option value="tr">Top right</option></select>
@@ -777,7 +806,7 @@ function setupOv(isStream){
   var k=m.id+'|'+m.i;if(k==lastKey)return;lastKey=k;
   ov.classList.remove('show');
   setTimeout(function(){
-   ov.querySelector('img').src=m.th||'';
+   var img=ov.querySelector('img');img.onerror=function(){img.onerror=null;img.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2272%22 height=%2254%22%3E%3Crect width=%2272%22 height=%2254%22 fill=%22%23333%22/%3E%3C/svg%3E'};img.src=m.th||'';
    ov.querySelector('.lbl').textContent='Now playing  '+m.i+' of '+m.n;
    var te=ov.querySelector('.t'),sp=document.createElement('span');sp.textContent=m.t;te.textContent='';te.appendChild(sp);te.classList.remove('mq');
    var fit=function(){te.classList.remove('mq');sp.textContent=m.t;if(sp.offsetWidth-te.clientWidth>2){sp.innerHTML='';for(var k=0;k<2;k++){var cp=document.createElement('span');cp.textContent=m.t;sp.appendChild(cp)}te.classList.add('mq');var d=sp.firstChild.offsetWidth;te.style.setProperty('--mq',-d+'px');te.style.setProperty('--mqd',(d/40).toFixed(2)+'s')}};
@@ -796,6 +825,14 @@ function setupOv(isStream){
   var es=new EventSource('https://ntfy.sh/'+encodeURIComponent(tp)+'/sse?since=latest');
   es.onmessage=function(e){try{var d=JSON.parse(e.data);if(d.event==='message')show(JSON.parse(d.message))}catch(x){}};
  }
+ if(tp&&window.mqtt){
+  try{
+   var mc=mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+   mc.on('connect',function(){mc.subscribe(tp);});
+   mc.on('message',function(t,payload){try{show(JSON.parse(payload.toString()))}catch(x){}});
+   mc.on('error',function(){});
+  }catch(x){}
+ }
 }
 if(P.has('overlay')){setupOv(false);return}
 if(stream){document.body.classList.add('st');if(P.get('video')==='0')document.body.classList.add('nov');setupOv(true)}
@@ -804,10 +841,26 @@ if(stream){document.body.classList.add('st');if(P.get('video')==='0')document.bo
 var Q=[],I=0,yt=null,ready=false,pendingId=null;
 function newTopic(){var a=new Uint8Array(12),s='pls-',i;try{crypto.getRandomValues(a)}catch(e){for(i=0;i<12;i++)a[i]=Math.random()*256}for(i=0;i<12;i++)s+=(a[i]%36).toString(36);return s}
 var topic=lsGet('pls_topic');if(!topic){topic=newTopic();lsSet('pls_topic',topic)}
-var relayWarned=false;
+var relayWarned=false, mqttClient=null, mqttReady=false, mqttQueue=[];
+function mqttEnsure(){
+ if(mqttClient)return;
+ try{
+  mqttClient=mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+  mqttClient.on('connect',function(){mqttReady=true;while(mqttQueue.length)mqttClient.publish(topic,mqttQueue.shift());syncState(1);});
+  mqttClient.on('error',function(){mqttReady=false;});
+  mqttClient.on('close',function(){mqttReady=false;});
+ }catch(e){}
+}
+function mqttPublish(payload){
+ mqttEnsure();
+ if(mqttReady&&mqttClient)mqttClient.publish(topic,payload);
+ else mqttQueue.push(payload);
+}
 function relay(m){
  if(stream||!$('relay').checked)return;
- fetch('https://ntfy.sh/'+topic,{method:'POST',body:JSON.stringify(m)}).then(function(r){if(!r.ok)throw 0;syncState(1)}).catch(function(){syncState(0);if(!relayWarned){relayWarned=true;status('Could not reach the overlay relay (ntfy.sh). Check your connection or ad blocker.')}});
+ var payload=JSON.stringify(m);
+ mqttPublish(payload);
+ fetch('https://ntfy.sh/'+topic,{method:'POST',body:payload}).then(function(r){if(!r.ok)throw 0;syncState(1)}).catch(function(){syncState(0);if(!relayWarned){relayWarned=true;status('Could not reach the overlay relay. Check your connection or ad blocker.')}});
 }
 $('pls').value=lsGet('pls_ids')||'';
 $('hgt').value=lsGet('pls_h')||'480';
@@ -894,11 +947,7 @@ async function fetchList(id){
     invidiousHost=h;
     allv.sort(function(a,b){return (a.index||0)-(b.index||0)});
     return {title:title||id,videos:allv.map(function(v){
-     var th='';
-     if(v.videoThumbnails&&v.videoThumbnails.length){
-      var mq=v.videoThumbnails.find(function(t){return t.quality=='mqdefault'||t.quality=='default'});
-      th=mq?mq.url:v.videoThumbnails[0].url;
-     }
+     var th='https://i.ytimg.com/vi/'+v.videoId+'/mqdefault.jpg';
      return {id:v.videoId,t:v.title||'Unknown',c:(v.author||'').replace(/ - Topic$/,''),th:th};
     })};
    }
@@ -1097,6 +1146,118 @@ document.addEventListener('keydown',function(e){
  if(!G.on||$('qbox').hidden||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
  var n=+e.key;if(n>=1&&n<=NOPT){e.preventDefault();qAnswer(n-1)}else if(e.key=='Enter'&&G.answered&&document.activeElement!==$('qnext')){e.preventDefault();$('qnext').click()}
 });
+/* ---------- rhythm game ---------- */
+var R={on:false,bpm:120,score:0,streak:0,miss:0,taps:[],
+       phase:'arrows',seq:[],seqIndex:0,
+       circle:{x:0,dir:1,speed:1.2,perfectCenter:0.5,perfectWidth:0.18},
+       labels:[],lastFrame:0};
+function rBeat(){return 60/R.bpm}
+function rNow(){return yt&&yt.getCurrentTime?yt.getCurrentTime():0}
+function rSeqLen(){return Math.min(8,2+Math.floor(rNow()/10))}
+function rGenSeq(){R.seq=[];R.seqIndex=0;var len=rSeqLen();for(var i=0;i<len;i++)R.seq.push(Math.floor(Math.random()*4))}
+function rAddLabel(text,x,y,color){R.labels.push({text:text,x:x,y:y,color:color,t:0})}
+function rArrowInput(dir){
+ if(!R.on||R.phase!=='arrows')return;
+ if(dir===R.seq[R.seqIndex]){
+  R.seqIndex++;
+  if(R.seqIndex>=R.seq.length){R.phase='circle';R.circle.x=0;R.circle.dir=1}
+ }else{
+  R.miss++;R.streak=0;rAddLabel('Miss!',rstage.width/2,120,'#ff4c4c');rGenSeq();
+ }
+ rUpdate();
+}
+function rSpaceHit(){
+ if(!R.on||R.phase!=='circle')return;
+ var dist=Math.abs(R.circle.x-R.circle.perfectCenter),w=rstage.width;
+ var label,color,pts;
+ if(dist<R.circle.perfectWidth/3){label='Perfect!';color='#ffd700';pts=300}
+ else if(dist<R.circle.perfectWidth/1.5){label='Good!';color='#4cff4c';pts=150}
+ else if(dist<R.circle.perfectWidth){label='OK';color='#ffd93d';pts=60}
+ else{label='Miss!';color='#ff4c4c';pts=0;R.miss++;R.streak=0}
+ if(label!=='Miss!'){R.score+=pts;R.streak++}
+ rAddLabel(label,w/2,rstage.height/2,color);
+ R.phase='arrows';rGenSeq();rUpdate();
+}
+function rUpdate(){rstat.textContent='Score: '+R.score+' · Streak: '+R.streak+' · Miss: '+R.miss}
+function rDraw(ts){
+ if(!R.on)return;
+ var cv=rstage,c=cv.getContext('2d'),w=cv.width,h=cv.height,now=rNow(),interval=rBeat(),targetY=h-60,laneW=w/4;
+ var dt=0;if(R.lastFrame&&ts){dt=(ts-R.lastFrame)/1000;R.lastFrame=ts}else{R.lastFrame=ts||0}
+ c.clearRect(0,0,w,h);
+ // beat-synced wave (true audio waveforms blocked by browser CORS)
+ var waveBase=targetY/2,beatPhase=(now%interval)/interval,amp=10+45*Math.sin(beatPhase*Math.PI);
+ c.strokeStyle='rgba(78,255,78,0.18)';c.lineWidth=2;c.beginPath();
+ for(var wx=0;wx<=w;wx+=3){var wy=waveBase+Math.sin(wx*0.025+now*3)*amp*Math.sin(wx*0.008+beatPhase*Math.PI);c.lineTo(wx,wy)}
+ c.stroke();
+ // lanes
+ for(var i=0;i<=4;i++){c.strokeStyle='#333';c.beginPath();c.moveTo(i*laneW,0);c.lineTo(i*laneW,h);c.stroke()}
+ c.strokeStyle='#fff';c.lineWidth=2;c.beginPath();c.moveTo(0,targetY);c.lineTo(w,targetY);c.stroke();
+ // sequence box
+ if(R.phase==='arrows'||R.phase==='circle'){
+  var boxW=Math.min(w-20,46*R.seq.length),boxH=50,cx=w/2,cy=80,sx=cx-boxW/2;
+  c.fillStyle='rgba(255,255,255,0.05)';c.strokeStyle='#444';c.lineWidth=2;
+  c.fillRect(sx,cy-boxH/2,boxW,boxH);c.strokeRect(sx,cy-boxH/2,boxW,boxH);
+  c.font='bold 28px sans-serif';c.textAlign='center';c.textBaseline='middle';
+  R.seq.forEach(function(d,i){
+   var x=sx+23+i*46,y=cy;
+   c.fillStyle=i<R.seqIndex?'#4cff4c':'#fff';
+   c.fillText(['↑','↓','←','→'][d],x,y);
+  });
+ }
+ // traveling circle bar
+ if(R.phase==='circle'){
+  var barY=targetY-40,barW=w-40,barX=20,barH=18;
+  c.fillStyle='rgba(255,255,255,0.08)';c.fillRect(barX,barY,barW,barH);
+  var pz=R.circle.perfectCenter*barW,pw=R.circle.perfectWidth*barW;
+  c.fillStyle='rgba(78,255,78,0.35)';c.fillRect(barX+pz-pw/2,barY,pw,barH);
+  c.strokeStyle='#888';c.strokeRect(barX,barY,barW,barH);
+  var cx2=barX+R.circle.x*barW;
+  c.fillStyle='#fff';c.beginPath();c.arc(cx2,barY+barH/2,10,0,Math.PI*2);c.fill();
+  R.circle.x+=R.circle.dir*R.circle.speed*dt;
+  if(R.circle.x>=1){R.circle.x=1;R.circle.dir=-1}
+  if(R.circle.x<=0){R.circle.x=0;R.circle.dir=1}
+ }
+ // labels
+ c.font='bold 22px sans-serif';
+ R.labels.forEach(function(l){l.t+=0.02;l.y-=1.2;c.globalAlpha=Math.max(0,1-l.t/0.9);c.fillStyle=l.color;c.fillText(l.text,l.x,l.y)});
+ c.globalAlpha=1;
+ R.labels=R.labels.filter(function(l){return l.t<0.9});
+ rUpdate();
+ requestAnimationFrame(rDraw);
+}
+function rStart(){
+ if(!Q.length){status('Load a playlist first.');return}
+ R.on=true;R.score=0;R.streak=0;R.miss=0;R.taps=[];R.labels=[];R.lastFrame=0;
+ R.bpm=Math.max(40,Math.min(300,+rbpm.value||120));R.phase='arrows';rGenSeq();
+ try{yt.playVideo()}catch(e){}
+ rUpdate();requestAnimationFrame(rDraw);
+}
+function rStop(){R.on=false}
+rstart.onclick=rStart;
+rstop.onclick=rStop;
+rtapbpm.onclick=function(){
+ var now=Date.now();R.taps=R.taps.filter(function(t){return now-t<2000});R.taps.push(now);
+ if(R.taps.length>1){rbpm.value=Math.round(60000/((R.taps[R.taps.length-1]-R.taps[0])/(R.taps.length-1)))}
+};
+document.addEventListener('keydown',function(e){
+ if(!R.on||$('grhythm').querySelector('.gpanel').hidden||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
+ if(e.key===' '||e.code==='Space'){e.preventDefault();rSpaceHit();return}
+ var dir={'ArrowUp':0,'ArrowDown':1,'ArrowLeft':2,'ArrowRight':3}[e.key];
+ if(dir!==undefined){e.preventDefault();rArrowInput(dir)}
+});
+function gToggle(id){
+ var ids=['gquiz','grhythm'];
+ ids.forEach(function(k){
+  if(k===id)return;
+  var el=$(k),p=el.querySelector('.gpanel');
+  if(!p.hidden){p.hidden=true;el.classList.remove('open');if(k==='gquiz')qStop();if(k==='grhythm')rStop();}
+ });
+ var el=$(id),p=el.querySelector('.gpanel'),open=!p.hidden;
+ p.hidden=open;el.classList.toggle('open',!open);
+ if(open){if(id==='gquiz')qStop();if(id==='grhythm')rStop();}
+}
+$('gquiz').querySelector('.ghead').onclick=function(){gToggle('gquiz')};
+$('grhythm').querySelector('.ghead').onclick=function(){gToggle('grhythm')};
 $('load').onclick=load;
 $('reshuf').onclick=function(){if(!Q.length)return;var cur=Q[I];Q=shuffle(Q);I=0;save();render();status('Reshuffled.');play(0,true)};
 $('resume').onclick=restore;
